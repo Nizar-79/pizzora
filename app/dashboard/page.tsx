@@ -12,6 +12,7 @@ async function getDashboardData() {
     { count: activeLocations },
     { count: posFailedCount },
     { data: recentOrders },
+    { data: recentCalls },
   ] = await Promise.all([
     supabase
       .from("orders")
@@ -31,6 +32,11 @@ async function getDashboardData() {
       .select("id, caller_name, total, status, created_at")
       .order("created_at", { ascending: false })
       .limit(10),
+    supabase
+      .from("call_logs")
+      .select("id, caller_number, call_status, created_at, locations(name), orders(status, total)")
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   return {
@@ -38,10 +44,11 @@ async function getDashboardData() {
     activeLocations: activeLocations ?? 0,
     posFailedCount: posFailedCount ?? 0,
     recentOrders: recentOrders ?? [],
+    recentCalls: recentCalls ?? [],
   };
 }
 
-const statusColors: Record<string, string> = {
+const orderStatusColors: Record<string, string> = {
   received: "bg-blue-100 text-blue-700",
   sent_to_pos: "bg-green-100 text-green-700",
   pos_failed: "bg-red-100 text-red-700",
@@ -49,14 +56,21 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-yellow-100 text-yellow-700",
 };
 
+const callStatusColors: Record<string, string> = {
+  Completed: "bg-green-100 text-green-700",
+  "No Answer": "bg-yellow-100 text-yellow-700",
+  Voicemail: "bg-blue-100 text-blue-700",
+};
+
 export default async function DashboardPage() {
-  const { ordersToday, activeLocations, posFailedCount, recentOrders } =
+  const { ordersToday, activeLocations, posFailedCount, recentOrders, recentCalls } =
     await getDashboardData();
 
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
 
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <p className="text-sm text-gray-500">Orders Today</p>
@@ -74,6 +88,68 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* Live Call Feed */}
+      <div className="bg-white rounded-xl border border-gray-200 mb-6">
+        <div className="p-6 border-b border-gray-200 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <h3 className="font-semibold text-gray-900">Live Call Feed</h3>
+          <span className="text-xs text-gray-400 ml-auto">Last 10 calls</span>
+        </div>
+        {recentCalls.length === 0 ? (
+          <div className="p-6 text-center text-gray-400">
+            No calls yet. Calls will appear here as Thinkrr sends them.
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
+                <th className="px-6 py-3">Time</th>
+                <th className="px-6 py-3">Location</th>
+                <th className="px-6 py-3">Caller</th>
+                <th className="px-6 py-3">Call Status</th>
+                <th className="px-6 py-3">Order</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentCalls.map((call) => {
+                const order = call.orders as unknown as { status: string; total: number } | null;
+                const location = call.locations as unknown as { name: string } | null;
+                return (
+                  <tr key={call.id} className="border-b border-gray-100 last:border-0">
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {new Date(call.created_at).toLocaleTimeString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {location?.name ?? <span className="text-gray-400">Unknown</span>}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {call.caller_number ?? "—"}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${callStatusColors[call.call_status] ?? "bg-gray-100 text-gray-600"}`}>
+                        {call.call_status ?? "Unknown"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {order ? (
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${orderStatusColors[order.status] ?? "bg-gray-100 text-gray-700"}`}>
+                          {order.status} · ${order.total?.toFixed(2)}
+                        </span>
+                      ) : call.call_status === "Completed" ? (
+                        <span className="text-xs text-orange-500">Processing…</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Recent Orders */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h3 className="font-semibold text-gray-900">Recent Orders</h3>
@@ -98,7 +174,7 @@ export default async function DashboardPage() {
                   <td className="px-6 py-4 text-sm text-gray-900">{order.caller_name ?? "Unknown"}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">${order.total?.toFixed(2) ?? "—"}</td>
                   <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[order.status] ?? "bg-gray-100 text-gray-700"}`}>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${orderStatusColors[order.status] ?? "bg-gray-100 text-gray-700"}`}>
                       {order.status}
                     </span>
                   </td>

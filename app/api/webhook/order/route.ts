@@ -1,73 +1,53 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase";
 import { parseOrderFromTranscript } from "@/lib/claude";
 import { sendToToast } from "@/lib/connectors/toast";
 import { sendToSquare } from "@/lib/connectors/square";
 import { sendToClover } from "@/lib/connectors/clover";
 
-export async function POST(request: NextRequest) {
+interface ThinkrrPayload {
+  transcript?: string;
+  call_status: string;
+  caller_number: string;
+  call_recording_url?: string;
+  timestamp?: string;
+  to_number: string;
+}
+
+interface Location {
+  id: string;
+  pos_type: string;
+  pos_api_key: string;
+  tax_rate: number;
+  menus: Array<{
+    item_name: string;
+    base_price: number;
+    category: string;
+    available_modifiers: string[];
+  }>;
+}
+
+async function processOrder(
+  location: Location,
+  payload: ThinkrrPayload,
+  callLogId: string
+) {
   const supabase = createClient();
   let orderId: string | null = null;
 
   try {
-    const body = await request.json();
-    const {
-      phone_number,
-      caller_name,
-      delivery_address,
-      transcript,
-      call_recording_url,
-      call_duration,
-    } = body;
+    const parsed = await parseOrderFromTranscript(payload.transcript!, location.menus);
 
-    if (!phone_number || !transcript) {
-      return NextResponse.json(
-        { error: "phone_number and transcript are required" },
-        { status: 400 }
-      );
-    }
-
-    // 1. Look up pizzeria by phone number
-    const { data: location, error: locationError } = await supabase
-      .from("locations")
-      .select("*, menus(*)")
-      .eq("phone_number", phone_number)
-      .eq("is_active", true)
-      .single();
-
-    if (locationError || !location) {
-      return NextResponse.json(
-        { error: "No active location found for this phone number" },
-        { status: 404 }
-      );
-    }
-
-    // 2. Log the call regardless of what happens next
-    await supabase.from("call_logs").insert({
-      location_id: location.id,
-      caller_number: phone_number,
-      duration: call_duration ?? null,
-      call_recording_url: call_recording_url ?? null,
-      transcript,
-    });
-
-    // 3. Parse the order transcript with Claude
-    const parsed = await parseOrderFromTranscript(transcript, location.menus);
-
-    // 4. Calculate totals with location's tax rate
     const subtotal = parsed.subtotal;
     const tax = parseFloat((subtotal * location.tax_rate).toFixed(2));
     const total = parseFloat((subtotal + tax).toFixed(2));
 
-    // 5. Save order to Supabase — this always happens
-    const { data: order, error: orderError } = await supabase
+    const { data: order } = await supabase
       .from("orders")
       .insert({
         location_id: location.id,
-        caller_name: caller_name ?? null,
-        caller_number: phone_number,
-        delivery_address: delivery_address ?? null,
-        call_transcript: transcript,
+        caller_number: payload.caller_number,
+        call_transcript: payload.transcript,
         parsed_order_json: parsed,
         subtotal,
         tax,
@@ -77,19 +57,15 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (orderError || !order) {
-      throw new Error("Failed to save order to database");
-    }
-
+    if (!order) throw new Error("Failed to save order to database");
     orderId = order.id;
 
-    // 6. Route to the correct POS system
     const standardOrder = {
       id: order.id,
       location_id: location.id,
-      caller_name: caller_name ?? null,
-      caller_number: phone_number,
-      delivery_address: delivery_address ?? null,
+      caller_name: null,
+      caller_number: payload.caller_number,
+      delivery_address: null,
       items: parsed.items,
       subtotal,
       tax,
@@ -98,7 +74,6 @@ export async function POST(request: NextRequest) {
     };
 
     let posConfirmation: string;
-
     switch (location.pos_type) {
       case "toast":
         posConfirmation = await sendToToast(standardOrder, location.pos_api_key);
@@ -113,36 +88,67 @@ export async function POST(request: NextRequest) {
         throw new Error(`Unknown POS type: ${location.pos_type}`);
     }
 
-    // 7. Mark order as sent to POS
     await supabase
       .from("orders")
       .update({ status: "sent_to_pos", pos_confirmation: posConfirmation })
       .eq("id", order.id);
 
-    return NextResponse.json({
-      success: true,
-      order_id: order.id,
-      subtotal,
-      tax,
-      total,
-      pos_confirmation: posConfirmation,
-    });
+    // Link the order back to the call log
+    await supabase
+      .from("call_logs")
+      .update({ order_id: order.id })
+      .eq("id", callLogId);
   } catch (error) {
-    // POS failed — flag the order so it's visible in the dashboard
     if (orderId) {
       await createClient()
         .from("orders")
         .update({ status: "pos_failed" })
         .eq("id", orderId);
     }
-
-    console.error("[webhook/order]", error);
-    return NextResponse.json(
-      {
-        error: "Order processing failed",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
+    console.error("[processOrder]", error);
   }
+}
+
+export async function POST(request: NextRequest) {
+  const supabase = createClient();
+
+  let payload: ThinkrrPayload;
+  try {
+    payload = await request.json();
+  } catch {
+    // Malformed body — still return 200 so Thinkrr doesn't retry
+    return NextResponse.json({ received: true });
+  }
+
+  const { transcript, call_status, caller_number, call_recording_url, to_number } = payload;
+
+  // Look up the pizzeria by the number Thinkrr called (to_number)
+  const { data: location } = await supabase
+    .from("locations")
+    .select("*, menus(*)")
+    .eq("phone_number", to_number)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  // Log every call — completed, missed, or voicemail
+  const { data: callLog } = await supabase
+    .from("call_logs")
+    .insert({
+      location_id: location?.id ?? null,
+      caller_number: caller_number ?? null,
+      call_status: call_status ?? null,
+      call_recording_url: call_recording_url ?? null,
+      transcript: transcript ?? null,
+      raw_payload: payload,
+    })
+    .select()
+    .single();
+
+  // Only parse orders from completed calls with a known location and transcript
+  if (call_status === "Completed" && location && callLog?.id && transcript) {
+    after(() => processOrder(location as Location, payload, callLog.id));
+  }
+
+  // Always respond immediately — Thinkrr expects 200 within 3 seconds
+  return NextResponse.json({ received: true });
 }
