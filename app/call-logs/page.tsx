@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 async function getCallLogs() {
   const supabase = createClient();
   const { data } = await supabase

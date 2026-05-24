@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 async function getDashboardData() {
   const supabase = createClient();
   const todayStart = new Date();

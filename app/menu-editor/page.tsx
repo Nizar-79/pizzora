@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 async function getLocationsWithMenus() {
   const supabase = createClient();
   const { data } = await supabase
