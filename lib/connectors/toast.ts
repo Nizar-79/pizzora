@@ -21,8 +21,13 @@ export async function sendToToast(
   order: StandardOrder,
   apiKey: string
 ): Promise<string> {
+  const isProd = process.env.POS_ENV === "production";
+  const baseUrl = isProd
+    ? "https://ws-api.toasttab.com"
+    : "https://ws-sandbox.toasttab.com";
+
   const response = await fetch(
-    "https://ws-sandbox.toasttab.com/orders/v2/orders",
+    `${baseUrl}/orders/v2/orders`,
     {
       method: "POST",
       headers: {

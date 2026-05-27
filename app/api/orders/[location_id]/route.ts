@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase";
+import { createAuthServerClient } from "@/lib/supabase-server-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ location_id: string }> }
 ) {
+  const authClient = await createAuthServerClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const supabase = createClient();
   const { location_id } = await params;
   const { searchParams } = new URL(request.url);

@@ -4,8 +4,13 @@ export async function sendToSquare(
   order: StandardOrder,
   accessToken: string
 ): Promise<string> {
+  const isProd = process.env.POS_ENV === "production";
+  const baseUrl = isProd
+    ? "https://connect.squareup.com"
+    : "https://connect.squareupsandbox.com";
+
   const response = await fetch(
-    "https://connect.squareupsandbox.com/v2/orders",
+    `${baseUrl}/v2/orders`,
     {
       method: "POST",
       headers: {

@@ -1,11 +1,22 @@
 import type { StandardOrder } from "./toast";
 
+// pos_api_key for Clover must be stored as "merchantId|apiKey"
 export async function sendToClover(
   order: StandardOrder,
-  apiKey: string
+  combinedKey: string
 ): Promise<string> {
+  const [merchantId, apiKey] = combinedKey.split("|");
+  if (!merchantId || !apiKey) {
+    throw new Error("Clover key must be in the format: merchantId|apiKey");
+  }
+
+  const isProd = process.env.POS_ENV === "production";
+  const baseUrl = isProd
+    ? "https://api.clover.com"
+    : "https://sandbox.dev.clover.com";
+
   const response = await fetch(
-    "https://sandbox.dev.clover.com/v3/merchants/ORDER/orders",
+    `${baseUrl}/v3/merchants/${merchantId}/orders`,
     {
       method: "POST",
       headers: {

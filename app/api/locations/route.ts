@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase";
+import { createAuthServerClient } from "@/lib/supabase-server-auth";
+
+async function requireAuth() {
+  const authClient = await createAuthServerClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  return user;
+}
 
 export async function GET() {
+  if (!await requireAuth()) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const supabase = createClient();
   const { data, error } = await supabase
     .from("locations")
@@ -16,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!await requireAuth()) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const supabase = createClient();
   const body = await request.json();
   const { name, phone_number, pos_type, pos_api_key, tax_rate } = body;

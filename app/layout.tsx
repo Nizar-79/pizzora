@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import ConditionalSidebar from "@/components/ConditionalSidebar";
 
-const inter = Inter({ subsets: ["latin"] });
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Pizzora — Voice AI Ordering",
@@ -16,12 +16,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto p-8">{children}</main>
-        </div>
+    <html lang="en" className={`${geist.variable} dark`}>
+      <body className="flex h-screen bg-background font-sans antialiased">
+        <ConditionalSidebar />
+        <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </body>
     </html>
   );
