@@ -1,6 +1,18 @@
 import { createClient } from "@/lib/supabase";
+import Link from "next/link";
+import AddLocationForm from "@/components/AddLocationForm";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 async function getLocations() {
   const supabase = createClient();
@@ -15,45 +27,62 @@ export default async function LocationsPage() {
   const locations = await getLocations();
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Locations</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Locations</h2>
+          <p className="text-muted-foreground text-sm mt-1">Manage your pizzeria locations</p>
+        </div>
+        <AddLocationForm />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200">
+      <Card>
         {locations.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            No locations yet. Use the API to add your first pizzeria location.
-          </div>
+          <p className="text-sm text-muted-foreground text-center py-12">
+            No locations yet. Add your first pizzeria location above.
+          </p>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
-                <th className="px-6 py-3">Name</th>
-                <th className="px-6 py-3">Phone</th>
-                <th className="px-6 py-3">POS System</th>
-                <th className="px-6 py-3">Tax Rate</th>
-                <th className="px-6 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>POS System</TableHead>
+                <TableHead>Tax Rate</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {locations.map((loc) => (
-                <tr key={loc.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{loc.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{loc.phone_number}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 capitalize">{loc.pos_type}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{(loc.tax_rate * 100).toFixed(2)}%</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${loc.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                <TableRow key={loc.id}>
+                  <TableCell className="font-medium">{loc.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{loc.phone_number}</TableCell>
+                  <TableCell className="text-muted-foreground capitalize">
+                    {loc.pos_type === "none" ? "Dashboard Only" : loc.pos_type}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {(loc.tax_rate * 100).toFixed(2)}%
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={loc.is_active ? "default" : "outline"}>
                       {loc.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                </tr>
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/locations/${loc.id}/settings`}
+                      className="text-sm text-primary font-medium hover:underline"
+                    >
+                      Settings
+                    </Link>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

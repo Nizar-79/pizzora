@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase";
+import AddMenuItemForm from "@/components/AddMenuItemForm";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 async function getLocationsWithMenus() {
   const supabase = createClient();
@@ -16,49 +18,31 @@ export default async function MenuEditorPage() {
   const locations = await getLocationsWithMenus();
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Menu Editor</h2>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold tracking-tight">Menu Editor</h2>
+        <p className="text-muted-foreground text-sm mt-1">Manage menu items for each location</p>
+      </div>
+
       {locations.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
-          No active locations. Add a location first.
-        </div>
+        <Card>
+          <p className="text-sm text-muted-foreground text-center py-12">
+            No active locations. Add a location first.
+          </p>
+        </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {locations.map((loc) => (
-            <div key={loc.id} className="bg-white rounded-xl border border-gray-200">
-              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">{loc.name}</h3>
-                <span className="text-sm text-gray-500">{loc.menus?.length ?? 0} items</span>
-              </div>
-              {!loc.menus || loc.menus.length === 0 ? (
-                <div className="p-6 text-sm text-gray-400">No menu items yet.</div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
-                      <th className="px-6 py-3">Item</th>
-                      <th className="px-6 py-3">Category</th>
-                      <th className="px-6 py-3">Price</th>
-                      <th className="px-6 py-3">Available</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(loc.menus as { id: string; item_name: string; category: string; base_price: number; is_available: boolean }[]).map((item) => (
-                      <tr key={item.id} className="border-b border-gray-100 last:border-0">
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.item_name}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 capitalize">{item.category}</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">${item.base_price.toFixed(2)}</td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs font-medium px-2 py-1 rounded-full ${item.is_available ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                            {item.is_available ? "Yes" : "No"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            <Card key={loc.id}>
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
+                <CardTitle className="text-base font-semibold">{loc.name}</CardTitle>
+                <span className="text-sm text-muted-foreground">{loc.menus?.length ?? 0} items</span>
+              </CardHeader>
+              <AddMenuItemForm
+                locationId={loc.id}
+                items={(loc.menus ?? []) as { id: string; item_name: string; category: string; base_price: number; is_available: boolean }[]}
+              />
+            </Card>
           ))}
         </div>
       )}

@@ -1,6 +1,16 @@
 import { createClient } from "@/lib/supabase";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 async function getOrders() {
   const supabase = createClient();
@@ -12,56 +22,70 @@ async function getOrders() {
   return data ?? [];
 }
 
-const statusColors: Record<string, string> = {
-  received: "bg-blue-100 text-blue-700",
-  sent_to_pos: "bg-green-100 text-green-700",
-  pos_failed: "bg-red-100 text-red-700",
-  completed: "bg-gray-100 text-gray-700",
-  cancelled: "bg-yellow-100 text-yellow-700",
+type OrderStatus = "received" | "sent_to_pos" | "pos_failed" | "completed" | "cancelled";
+
+const orderStatusVariant: Record<OrderStatus, "default" | "secondary" | "destructive" | "outline"> = {
+  received: "secondary",
+  sent_to_pos: "default",
+  pos_failed: "destructive",
+  completed: "outline",
+  cancelled: "outline",
 };
 
 export default async function OrderHistoryPage() {
   const orders = await getOrders();
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Order History</h2>
-      <div className="bg-white rounded-xl border border-gray-200">
-        {orders.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            No orders yet. Orders appear here after voice calls are processed.
-          </div>
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
-                <th className="px-6 py-3">Date</th>
-                <th className="px-6 py-3">Location</th>
-                <th className="px-6 py-3">Customer</th>
-                <th className="px-6 py-3">Total</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Transcript</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(order.created_at).toLocaleString()}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{(order.locations as { name: string } | null)?.name ?? "—"}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{order.caller_name ?? "Unknown"}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">${order.total?.toFixed(2) ?? "—"}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[order.status] ?? "bg-gray-100 text-gray-700"}`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{order.call_transcript ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold tracking-tight">Order History</h2>
+        <p className="text-muted-foreground text-sm mt-1">All orders processed by voice AI</p>
       </div>
+
+      <Card>
+        {orders.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-12">
+            No orders yet. Orders appear here after voice calls are processed.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Transcript</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(order.created_at).toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    {(order.locations as { name: string } | null)?.name ?? "—"}
+                  </TableCell>
+                  <TableCell>{order.caller_name ?? "Unknown"}</TableCell>
+                  <TableCell className="font-medium">
+                    ${order.total?.toFixed(2) ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={orderStatusVariant[order.status as OrderStatus] ?? "outline"}>
+                      {order.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground max-w-xs truncate">
+                    {order.call_transcript ?? "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
     </div>
   );
 }

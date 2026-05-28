@@ -1,6 +1,17 @@
 import { createClient } from "@/lib/supabase";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ShoppingCart, MapPin, AlertTriangle } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 15;
 
 async function getDashboardData() {
   const supabase = createClient();
@@ -48,18 +59,21 @@ async function getDashboardData() {
   };
 }
 
-const orderStatusColors: Record<string, string> = {
-  received: "bg-blue-100 text-blue-700",
-  sent_to_pos: "bg-green-100 text-green-700",
-  pos_failed: "bg-red-100 text-red-700",
-  completed: "bg-gray-100 text-gray-700",
-  cancelled: "bg-yellow-100 text-yellow-700",
+type OrderStatus = "received" | "sent_to_pos" | "pos_failed" | "completed" | "cancelled";
+type CallStatus = "Completed" | "No Answer" | "Voicemail";
+
+const orderStatusVariant: Record<OrderStatus, "default" | "secondary" | "destructive" | "outline"> = {
+  received: "secondary",
+  sent_to_pos: "default",
+  pos_failed: "destructive",
+  completed: "outline",
+  cancelled: "outline",
 };
 
-const callStatusColors: Record<string, string> = {
-  Completed: "bg-green-100 text-green-700",
-  "No Answer": "bg-yellow-100 text-yellow-700",
-  Voicemail: "bg-blue-100 text-blue-700",
+const callStatusVariant: Record<CallStatus, "default" | "secondary" | "destructive" | "outline"> = {
+  Completed: "default",
+  "No Answer": "secondary",
+  Voicemail: "outline",
 };
 
 export default async function DashboardPage() {
@@ -67,126 +81,146 @@ export default async function DashboardPage() {
     await getDashboardData();
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
+        <p className="text-muted-foreground text-sm mt-1">Today&apos;s overview across all locations</p>
+      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-sm text-gray-500">Orders Today</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{ordersToday}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-sm text-gray-500">Active Locations</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{activeLocations}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-sm text-gray-500">POS Failures Today</p>
-          <p className={`text-3xl font-bold mt-1 ${posFailedCount > 0 ? "text-red-600" : "text-gray-900"}`}>
-            {posFailedCount}
-          </p>
-        </div>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Orders Today</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{ordersToday}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Locations</CardTitle>
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{activeLocations}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">POS Failures Today</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className={`text-3xl font-bold ${posFailedCount > 0 ? "text-destructive" : ""}`}>
+              {posFailedCount}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Live Call Feed */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="p-6 border-b border-gray-200 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <h3 className="font-semibold text-gray-900">Live Call Feed</h3>
-          <span className="text-xs text-gray-400 ml-auto">Last 10 calls</span>
-        </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2 pb-3">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+          <CardTitle className="text-base font-semibold">Live Call Feed</CardTitle>
+          <span className="text-xs text-muted-foreground ml-auto">Last 10 calls</span>
+        </CardHeader>
         {recentCalls.length === 0 ? (
-          <div className="p-6 text-center text-gray-400">
-            No calls yet. Calls will appear here as Thinkrr sends them.
-          </div>
+          <CardContent>
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No calls yet. Calls will appear here as Thinkrr sends them.
+            </p>
+          </CardContent>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
-                <th className="px-6 py-3">Time</th>
-                <th className="px-6 py-3">Location</th>
-                <th className="px-6 py-3">Caller</th>
-                <th className="px-6 py-3">Call Status</th>
-                <th className="px-6 py-3">Order</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Time</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Caller</TableHead>
+                <TableHead>Call Status</TableHead>
+                <TableHead>Order</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {recentCalls.map((call) => {
                 const order = call.orders as unknown as { status: string; total: number } | null;
                 const location = call.locations as unknown as { name: string } | null;
                 return (
-                  <tr key={call.id} className="border-b border-gray-100 last:border-0">
-                    <td className="px-6 py-4 text-sm text-gray-500">
+                  <TableRow key={call.id}>
+                    <TableCell className="text-muted-foreground">
                       {new Date(call.created_at).toLocaleTimeString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {location?.name ?? <span className="text-gray-400">Unknown</span>}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {call.caller_number ?? "—"}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${callStatusColors[call.call_status] ?? "bg-gray-100 text-gray-600"}`}>
+                    </TableCell>
+                    <TableCell>{location?.name ?? <span className="text-muted-foreground">Unknown</span>}</TableCell>
+                    <TableCell>{call.caller_number ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={callStatusVariant[call.call_status as CallStatus] ?? "outline"}>
                         {call.call_status ?? "Unknown"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       {order ? (
-                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${orderStatusColors[order.status] ?? "bg-gray-100 text-gray-700"}`}>
+                        <Badge variant={orderStatusVariant[order.status as OrderStatus] ?? "outline"}>
                           {order.status} · ${order.total?.toFixed(2)}
-                        </span>
+                        </Badge>
                       ) : call.call_status === "Completed" ? (
                         <span className="text-xs text-orange-500">Processing…</span>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-muted-foreground text-sm">—</span>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </div>
+      </Card>
 
       {/* Recent Orders */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-900">Recent Orders</h3>
-        </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold">Recent Orders</CardTitle>
+        </CardHeader>
         {recentOrders.length === 0 ? (
-          <div className="p-6 text-center text-gray-400">
-            No orders yet. Orders will appear here as they come in.
-          </div>
+          <CardContent>
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No orders yet. Orders will appear here as they come in.
+            </p>
+          </CardContent>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
-                <th className="px-6 py-3">Customer</th>
-                <th className="px-6 py-3">Total</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Time</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {recentOrders.map((order) => (
-                <tr key={order.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-6 py-4 text-sm text-gray-900">{order.caller_name ?? "Unknown"}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">${order.total?.toFixed(2) ?? "—"}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${orderStatusColors[order.status] ?? "bg-gray-100 text-gray-700"}`}>
+                <TableRow key={order.id}>
+                  <TableCell>{order.caller_name ?? "Unknown"}</TableCell>
+                  <TableCell>${order.total?.toFixed(2) ?? "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant={orderStatusVariant[order.status as OrderStatus] ?? "outline"}>
                       {order.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
                     {new Date(order.created_at).toLocaleTimeString()}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
