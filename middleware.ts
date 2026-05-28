@@ -1,5 +1,14 @@
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+
+const adminRoutes = [
+  "/dashboard",
+  "/locations",
+  "/menu-editor",
+  "/order-history",
+  "/call-logs",
+];
 
 const protectedRoutes = [
   "/portal",
@@ -10,7 +19,7 @@ const protectedRoutes = [
   "/call-logs",
 ];
 
-export default async function proxy(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected = protectedRoutes.some(
     (r) => pathname === r || pathname.startsWith(r + "/")
@@ -43,10 +52,31 @@ export default async function proxy(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  const isAdminRoute = adminRoutes.some(
+    (r) => pathname === r || pathname.startsWith(r + "/")
+  );
+
+  if (isAdminRoute) {
+    const svc = createSupabaseClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_KEY!
+    );
+    const { data: loc } = await svc
+      .from("locations")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (loc) {
+      return NextResponse.redirect(new URL("/portal", request.url));
+    }
   }
 
   return supabaseResponse;

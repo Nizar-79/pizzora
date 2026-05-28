@@ -1,9 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/supabase-server-auth";
 import { revalidatePath } from "next/cache";
 
 export async function addMenuItem(formData: FormData) {
+  await requireAdmin();
   const supabase = createClient();
 
   const location_id = formData.get("location_id") as string;
@@ -26,6 +28,7 @@ export async function addMenuItem(formData: FormData) {
 }
 
 export async function deleteMenuItem(itemId: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { error } = await supabase.from("menus").delete().eq("id", itemId);
   if (error) throw new Error(error.message);

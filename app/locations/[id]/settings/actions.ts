@@ -1,9 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/supabase-server-auth";
 import { revalidatePath } from "next/cache";
 
 export async function updatePosSettings(formData: FormData) {
+  await requireAdmin();
   const supabase = createClient();
 
   const locationId = formData.get("locationId") as string;
