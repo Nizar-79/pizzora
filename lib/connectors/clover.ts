@@ -38,9 +38,9 @@ export async function sendToClover(
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Clover API error: ${response.status} ${await response.text()}`
-    );
+    const body = await response.text();
+    console.error(`[Clover] ${response.status}:`, body);
+    throw new Error(`Clover API error: ${response.status} ${body}`);
   }
 
   const data = await response.json();
