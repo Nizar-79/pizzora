@@ -24,7 +24,7 @@ export async function sendToClover(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        externalReferenceId: order.id,
+        externalReferenceId: order.id.replace(/-/g, "").slice(0, 12),
         note: order.special_instructions || undefined,
         lineItems: {
           elements: order.items.map((item) => ({
