@@ -157,8 +157,7 @@ export async function POST(request: NextRequest) {
         special_instructions: parsed.special_instructions ?? "",
       };
 
-      // POS routing is non-critical — fire without awaiting so we return 200 faster
-      void routeToPOS(loc, order.id, standardOrder);
+      await routeToPOS(loc, order.id, standardOrder);
     } catch (error) {
       if (orderId) {
         await supabase.from("orders").update({ status: "pos_failed" }).eq("id", orderId);
